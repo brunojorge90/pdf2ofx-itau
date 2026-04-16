@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF → OFX | Fatura Itaú</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Conversor PDF → OFX</h1>
+        <p class="subtitle">Fatura de cartão Itaú → Mobills</p>
+
+        <div id="upload-area" class="upload-area">
+            <input type="file" id="pdf-input" accept=".pdf" hidden>
+            <p class="upload-text">Arraste o PDF aqui ou <span class="link">clique para selecionar</span></p>
+            <p id="file-name" class="file-name"></p>
+        </div>
+
+        <button id="convert-btn" class="btn" disabled>Converter</button>
+
+        <div id="error-msg" class="error" hidden></div>
+
+        <div id="loading" class="loading" hidden><p>Processando...</p></div>
+
+        <div id="result" hidden>
+            <h2>Transações extraídas (<span id="count"></span>)</h2>
+            <div class="table-wrapper">
+                <table id="transactions-table">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Descrição</th>
+                            <th>Tipo</th>
+                            <th>Valor</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <button id="download-btn" class="btn btn-download">Baixar OFX</button>
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById("upload-area");
+        const pdfInput = document.getElementById("pdf-input");
+        const convertBtn = document.getElementById("convert-btn");
+        const errorMsg = document.getElementById("error-msg");
+        const result = document.getElementById("result");
+        const loading = document.getElementById("loading");
+        const fileName = document.getElementById("file-name");
+        const countSpan = document.getElementById("count");
+        const tbody = document.querySelector("#transactions-table tbody");
+        const downloadBtn = document.getElementById("download-btn");
+
+        let selectedFile = null;
+
+        uploadArea.addEventListener("click", () => pdfInput.click());
+
+        pdfInput.addEventListener("change", (e) => {
+            selectedFile = e.target.files[0];
+            if (selectedFile) {
+                fileName.textContent = selectedFile.name;
+                convertBtn.disabled = false;
+                errorMsg.hidden = true;
+                result.hidden = true;
+            }
+        });
+
+        uploadArea.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            uploadArea.classList.add("dragover");
+        });
+        uploadArea.addEventListener("dragleave", () => uploadArea.classList.remove("dragover"));
+        uploadArea.addEventListener("drop", (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove("dragover");
+            const file = e.dataTransfer.files[0];
+            if (file && file.name.toLowerCase().endsWith(".pdf")) {
+                selectedFile = file;
+                fileName.textContent = file.name;
+                convertBtn.disabled = false;
+                errorMsg.hidden = true;
+                result.hidden = true;
+            }
+        });
+
+        convertBtn.addEventListener("click", async () => {
+            if (!selectedFile) return;
+            loading.hidden = false;
+            errorMsg.hidden = true;
+            result.hidden = true;
+            convertBtn.disabled = true;
+
+            const formData = new FormData();
+            formData.append("pdf", selectedFile);
+
+            try {
+                const res = await fetch("/convert", { method: "POST", body: formData });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    errorMsg.textContent = data.error;
+                    errorMsg.hidden = false;
+                } else {
+                    countSpan.textContent = data.count;
+                    tbody.innerHTML = "";
+                    data.transactions.forEach((tx) => {
+                        const tr = document.createElement("tr");
+                        tr.className = tx.type === "Estorno" ? "credit" : "";
+                        tr.innerHTML = `
+                            <td>${tx.date}</td>
+                            <td>${tx.description}</td>
+                            <td>${tx.type}</td>
+                            <td class="amount">${tx.amount}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                    result.hidden = false;
+                }
+            } catch {
+                errorMsg.textContent = "Erro de conexão com o servidor.";
+                errorMsg.hidden = false;
+            } finally {
+                loading.hidden = true;
+                convertBtn.disabled = false;
+            }
+        });
+
+        downloadBtn.addEventListener("click", () => { window.location.href = "/download"; });
+    </script>
+</body>
+</html>
