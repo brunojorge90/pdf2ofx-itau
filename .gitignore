@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pdf
+*.ofx
+.env
+.vercel/
+.claude/

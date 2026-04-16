@@ -1,6 +1,6 @@
 import os
 import tempfile
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify
 from parser_pdf import parse_pdf
 from generator_ofx import generate_ofx
 
@@ -39,11 +39,6 @@ def convert():
 
     ofx_content = generate_ofx(transactions)
 
-    ofx_tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".ofx", mode="w", encoding="utf-8")
-    ofx_tmp.write(ofx_content)
-    ofx_tmp.close()
-    app.config["LAST_OFX_PATH"] = ofx_tmp.name
-
     preview = [
         {
             "date": tx["date"],
@@ -55,21 +50,7 @@ def convert():
         for tx in transactions
     ]
 
-    return jsonify({"transactions": preview, "count": len(preview)})
-
-
-@app.route("/download")
-def download():
-    ofx_path = app.config.get("LAST_OFX_PATH")
-    if not ofx_path or not os.path.exists(ofx_path):
-        return "Nenhum arquivo OFX disponível. Converta um PDF primeiro.", 404
-
-    return send_file(
-        ofx_path,
-        as_attachment=True,
-        download_name="fatura_itau.ofx",
-        mimetype="application/x-ofx",
-    )
+    return jsonify({"transactions": preview, "count": len(preview), "ofx": ofx_content})
 
 
 if __name__ == "__main__":

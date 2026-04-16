@@ -55,6 +55,7 @@
         const downloadBtn = document.getElementById("download-btn");
 
         let selectedFile = null;
+        let ofxContent = null;
 
         uploadArea.addEventListener("click", () => pdfInput.click());
 
@@ -104,6 +105,7 @@
                     errorMsg.textContent = data.error;
                     errorMsg.hidden = false;
                 } else {
+                    ofxContent = data.ofx;
                     countSpan.textContent = data.count;
                     tbody.innerHTML = "";
                     data.transactions.forEach((tx) => {
@@ -128,7 +130,16 @@
             }
         });
 
-        downloadBtn.addEventListener("click", () => { window.location.href = "/download"; });
+        downloadBtn.addEventListener("click", () => {
+            if (!ofxContent) return;
+            const blob = new Blob([ofxContent], { type: "application/x-ofx" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "fatura_itau.ofx";
+            a.click();
+            URL.revokeObjectURL(url);
+        });
     </script>
 </body>
 </html>
